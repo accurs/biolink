@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0b0b0d;
+  --foreground: #f4f4f5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-manrope), sans-serif;
+  background-image: linear-gradient(180deg, #0b0b0d 0%, #09090b 100%);
+}
+
+::selection {
+  background: rgb(117 224 255 / 0.35);
+  color: #fff;
+}
+
+.heading-font {
+  font-family: var(--font-syne), sans-serif;
+}
+
+
+.glass-card {
+  border: 1px solid rgb(255 255 255 / 0.08);
+  background: rgb(255 255 255 / 0.03);
+  backdrop-filter: blur(14px);
+  border-radius: 1rem;
+}
+
+.glass-pill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgb(255 255 255 / 0.08);
+  background: rgb(255 255 255 / 0.03);
+  backdrop-filter: blur(14px);
+  border-radius: 9999px;
+  padding: 0.45rem 0.8rem;
+  transition: all 0.2s ease;
+}
+
+.glass-pill:hover {
+  background: rgb(255 255 255 / 0.06);
+  border-color: rgb(255 255 255 / 0.14);
+}
+
+.fade-in-up {
+  animation: fadeUp 0.5s ease forwards;
+}
+
+.delay-2 {
+  animation-delay: 0.1s;
+}
+
+.delay-3 {
+  animation-delay: 0.2s;
+}
+
+.delay-4 {
+  animation-delay: 0.3s;
+}
+
+.marquee-wrap {
+  overflow: hidden;
+  width: 100%;
+}
+
+.marquee-track {
+  display: flex;
+  gap: 0.75rem;
+  width: max-content;
+  animation: marquee 24s linear infinite;
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+

@@ -1,0 +1,81 @@
+import Redis from "ioredis";
+import type { LanyardData } from "./app/lib/presence/types";
+import { WORKER_POLL_INTERVAL } from "./app/lib/presence/constants";
+import { fetchLanyardData, storePresenceData } from "./app/lib/presence/service";
+import { findGameActivity, getPlatformEmojis } from "./app/lib/presence/utils";
+
+const REDIS_URL = process.env.REDIS_URL;
+const USER_ID = process.env.DISCORD_USER_ID;
+
+if (!REDIS_URL) {
+  console.error("REDIS_URL environment variable is required");
+  process.exit(1);
+}
+
+if (!USER_ID) {
+  console.error("DISCORD_USER_ID environment variable is required");
+  process.exit(1);
+}
+
+const userId: string = USER_ID;
+const redisUrl: string = REDIS_URL;
+
+const redis = new Redis(redisUrl, {
+  lazyConnect: true,
+  maxRetriesPerRequest: 2,
+});
+
+async function updatePresence() {
+  try {
+    const current = await fetchLanyardData(userId);
+
+    if (!current) {
+      console.error("No data from Lanyard API");
+      return;
+    }
+
+    await storePresenceData(redis, userId, current);
+
+    const platformInfo = getPlatformEmojis(current);
+    const game = findGameActivity(current.activities);
+
+    if (current.listening_to_spotify && current.spotify) {
+      console.log(`[${new Date().toISOString()}] Updated: 🎵 ${current.spotify.song} by ${current.spotify.artist}${platformInfo}`);
+    } else if (game) {
+      console.log(`[${new Date().toISOString()}] Updated: 🎮 ${game.name}${platformInfo}`);
+    } else {
+      console.log(`[${new Date().toISOString()}] Updated: ${current.discord_status}${platformInfo}`);
+    }
+  } catch (error) {
+    console.error("Error updating presence:", error);
+  }
+}
+
+async function main() {
+  console.log("Connecting to Redis...");
+  await redis.connect();
+  console.log("Connected to Redis");
+  console.log(`Starting presence worker for user ${userId}`);
+  console.log(`Polling every ${WORKER_POLL_INTERVAL / 1000} seconds\n`);
+
+  await updatePresence();
+
+  setInterval(updatePresence, WORKER_POLL_INTERVAL);
+}
+
+process.on("SIGINT", async () => {
+  console.log("\nShutting down worker...");
+  await redis.quit();
+  process.exit(0);
+});
+
+process.on("SIGTERM", async () => {
+  console.log("\nShutting down worker...");
+  await redis.quit();
+  process.exit(0);
+});
+
+main().catch((error) => {
+  console.error("Fatal error:", error);
+  process.exit(1);
+});
