@@ -97,7 +97,7 @@ export default function Home() {
             href="https://github.com/accurs/portfolio"
             target="_blank"
             rel="noreferrer"
-            className="glass-pill inline-flex items-center gap-1.5 px-3 py-1.5 text-xs lowercase text-zinc-400 hover:text-zinc-200"
+            className="glass-pill inline-flex items-center gap-1.5 text-[11px] lowercase text-zinc-500 hover:text-zinc-300"
           >
             source
             <FiArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
