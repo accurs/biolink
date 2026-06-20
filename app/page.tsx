@@ -93,6 +93,15 @@ export default function Home() {
           <p className="text-xs text-zinc-500">
             <a href="mailto:damon@azron.net" className="transition-colors hover:text-zinc-300 underline underline-offset-4 decoration-zinc-700">damon@azron.net</a>
           </p>
+          <a
+            href="https://github.com/accurs/portfolio"
+            target="_blank"
+            rel="noreferrer"
+            className="glass-pill inline-flex items-center gap-1.5 px-3 py-1.5 text-xs lowercase text-zinc-400 hover:text-zinc-200"
+          >
+            source
+            <FiArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </a>
           <p className="text-[11px] text-zinc-600" style={{ fontFamily: "var(--font-ibm-plex-mono), monospace" }}>
             &copy; {new Date().getFullYear()}{" "}
             <a
