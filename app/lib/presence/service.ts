@@ -1,4 +1,4 @@
-import type { LanyardData, StoredSpotify, StoredGame } from "./types";
+import type { LanyardData, StoredSpotify, StoredGame, StoredStatus } from "./types";
 import { LANYARD_API_BASE, CURRENT_TTL, LAST_TTL, getRedisKeys } from "./constants";
 import { findGameActivity } from "./utils";
 import type Redis from "ioredis";
@@ -55,13 +55,14 @@ export async function storePresenceData(
   redis: Redis,
   userId: string,
   current: LanyardData
-): Promise<{ lastSpotify: StoredSpotify | null; lastGame: StoredGame | null }> {
+): Promise<{ lastSpotify: StoredSpotify | null; lastGame: StoredGame | null; lastStatus: StoredStatus | null }> {
   const keys = getRedisKeys(userId);
 
   await redis.set(keys.current, JSON.stringify(current), "EX", CURRENT_TTL);
 
   let lastSpotify: StoredSpotify | null = null;
   let lastGame: StoredGame | null = null;
+  let lastStatus: StoredStatus | null = null;
 
   if (current.listening_to_spotify && current.spotify) {
     lastSpotify = {
@@ -85,7 +86,15 @@ export async function storePresenceData(
     await redis.set(keys.game, JSON.stringify(lastGame), "EX", LAST_TTL);
   }
 
-  return { lastSpotify, lastGame };
+  if (current.discord_status !== "offline") {
+    lastStatus = {
+      status: current.discord_status,
+      seenAt: Date.now(),
+    };
+    await redis.set(keys.status, JSON.stringify(lastStatus), "EX", LAST_TTL);
+  }
+
+  return { lastSpotify, lastGame, lastStatus };
 }
 
 export async function getCachedPresenceData(
@@ -95,18 +104,21 @@ export async function getCachedPresenceData(
   current: LanyardData | null;
   lastSpotify: StoredSpotify | null;
   lastGame: StoredGame | null;
+  lastStatus: StoredStatus | null;
 }> {
   const keys = getRedisKeys(userId);
 
-  const [cachedCurrent, cachedSpotify, cachedGame] = await Promise.all([
+  const [cachedCurrent, cachedSpotify, cachedGame, cachedStatus] = await Promise.all([
     redis.get(keys.current),
     redis.get(keys.spotify),
     redis.get(keys.game),
+    redis.get(keys.status),
   ]);
 
   return {
     current: cachedCurrent ? (JSON.parse(cachedCurrent) as LanyardData) : null,
     lastSpotify: cachedSpotify ? (JSON.parse(cachedSpotify) as StoredSpotify) : null,
     lastGame: cachedGame ? (JSON.parse(cachedGame) as StoredGame) : null,
+    lastStatus: cachedStatus ? (JSON.parse(cachedStatus) as StoredStatus) : null,
   };
 }

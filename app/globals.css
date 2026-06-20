@@ -3,9 +3,6 @@
 :root {
   --background: #0b0b0d;
   --foreground: #f4f4f5;
-  --avatar-color-1: 74, 88, 122;
-  --avatar-color-2: 112, 71, 131;
-  --avatar-color-3: 72, 122, 143;
 }
 
 * {
@@ -29,6 +26,10 @@ body {
 }
 
 .avatar-gradient-text {
+  color: #fff;
+}
+
+.avatar-colors-ready .avatar-gradient-text {
   background-image: linear-gradient(
     90deg,
     rgb(var(--avatar-color-1)) 0%,

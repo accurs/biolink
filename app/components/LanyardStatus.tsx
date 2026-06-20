@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
-import type { LanyardData, StoredSpotify, StoredGame, PresenceResponse } from "@/app/lib/presence/types";
+import type { LanyardData, StoredSpotify, StoredGame, StoredStatus, PresenceResponse } from "@/app/lib/presence/types";
 import { FiSmartphone, FiMonitor, FiGlobe } from "react-icons/fi";
 import { CLIENT_POLL_INTERVAL, statusDotMap } from "@/app/lib/presence/constants";
 import { formatMs, timeAgo, getDiscordAvatarUrl, getGameStatusText, findGameActivity } from "@/app/lib/presence/utils";
@@ -11,6 +11,7 @@ export default function LanyardStatus({ userId }: { userId: string }) {
   const [status, setStatus] = useState<LanyardData | null>(null);
   const [lastSpotify, setLastSpotify] = useState<StoredSpotify | null>(null);
   const [lastGame, setLastGame] = useState<StoredGame | null>(null);
+  const [lastStatus, setLastStatus] = useState<StoredStatus | null>(null);
   const [, setTick] = useState(0);
   const [spotifyProgress, setSpotifyProgress] = useState<number | null>(null);
   const [spotifyTimes, setSpotifyTimes] = useState<{ elapsed: string; total: string } | null>(null);
@@ -35,15 +36,35 @@ export default function LanyardStatus({ userId }: { userId: string }) {
     const fetchStatus = async () => {
       try {
         const res = await fetch(`/api/presence/${userId}`, { cache: "no-store" });
-        if (!res.ok) return;
+        if (!res.ok) {
+          if (!mounted) return;
+          setStatus(null);
+          setLastSpotify(null);
+          setLastGame(null);
+          setLastStatus(null);
+          return;
+        }
 
         const payload = (await res.json()) as PresenceResponse;
         if (!mounted) return;
+        if (!payload.current) {
+          setStatus(null);
+          setLastSpotify(null);
+          setLastGame(null);
+          setLastStatus(null);
+          return;
+        }
 
         setStatus(payload.current);
-        if (payload.lastSpotify) setLastSpotify(payload.lastSpotify);
-        if (payload.lastGame) setLastGame(payload.lastGame);
+        setLastSpotify(payload.lastSpotify ?? null);
+        setLastGame(payload.lastGame ?? null);
+        setLastStatus(payload.lastStatus ?? null);
       } catch {
+        if (!mounted) return;
+        setStatus(null);
+        setLastSpotify(null);
+        setLastGame(null);
+        setLastStatus(null);
       }
     };
 
@@ -58,7 +79,6 @@ export default function LanyardStatus({ userId }: { userId: string }) {
 
   useEffect(() => {
     if (!status) return;
-    const prev = prevStatusRef.current;
     prevStatusRef.current = status.discord_status;
   }, [status]);
 
@@ -77,10 +97,15 @@ export default function LanyardStatus({ userId }: { userId: string }) {
   }, [lastSpotify, lastGame, status?.listening_to_spotify, status?.activities]);
 
   useEffect(() => {
-    calcSpotifyProgress(status);
-    if (!status?.listening_to_spotify || !status.spotify?.timestamps) return;
+    const immediateId = window.setTimeout(() => calcSpotifyProgress(status), 0);
+    if (!status?.listening_to_spotify || !status.spotify?.timestamps) {
+      return () => window.clearTimeout(immediateId);
+    }
     const id = window.setInterval(() => calcSpotifyProgress(status), 1_000);
-    return () => window.clearInterval(id);
+    return () => {
+      window.clearTimeout(immediateId);
+      window.clearInterval(id);
+    };
   }, [status, calcSpotifyProgress]);
 
   const currentGame = useMemo(() => {
@@ -105,46 +130,18 @@ export default function LanyardStatus({ userId }: { userId: string }) {
   const currentSpotifyData = status?.listening_to_spotify ? status.spotify : null;
   const spotifyToDisplay = currentSpotifyData || lastSpotify;
   
-  const spotifyText = useMemo(() => {
+  const spotifyMeta = useMemo(() => {
     if (!spotifyToDisplay) return null;
-    const text = `${spotifyToDisplay.song} by ${spotifyToDisplay.artist}`;
     const isOffline = status?.discord_status === "offline";
-    if (!currentSpotifyData && lastSpotify && !isOffline) {
-      return `${timeAgo(lastSpotify.seenAt)} - ${text}`;
-    }
-    return text;
+    const prefix = !currentSpotifyData && lastSpotify && !isOffline
+      ? `${timeAgo(lastSpotify.seenAt)} · `
+      : "";
+    return {
+      prefix,
+      song: spotifyToDisplay.song,
+      artist: spotifyToDisplay.artist,
+    };
   }, [spotifyToDisplay, currentSpotifyData, lastSpotify, status?.discord_status]);
-
-  const displayName = status?.discord_user.global_name || status?.discord_user.username || "discord";
-  const dotClass = status ? statusDotMap[status.discord_status] : "bg-zinc-500";
-  const avatarUrl = status
-    ? getDiscordAvatarUrl(status.discord_user)
-    : "https://cdn.discordapp.com/embed/avatars/0.png";
-  const avatarDecorationUrl = status?.discord_user.avatar_decoration_data
-    ? `https://cdn.discordapp.com/avatar-decoration-presets/${status.discord_user.avatar_decoration_data.asset}.png?size=128`
-    : null;
-  const nameplateUrl = status?.discord_user.collectibles?.nameplate
-    ? `https://cdn.discordapp.com/assets/collectibles/${status.discord_user.collectibles.nameplate.asset}static.png`
-    : null;
-
-  const activePlatforms = useMemo(() => {
-    if (!status) return [];
-    const platforms = [];
-    if (status.active_on_discord_mobile) platforms.push({ icon: FiSmartphone, name: "Mobile" });
-    if (status.active_on_discord_desktop) platforms.push({ icon: FiMonitor, name: "Desktop" });
-    if (status.active_on_discord_web) platforms.push({ icon: FiGlobe, name: "Web" });
-    return platforms;
-  }, [status]);
-
-  const isOffline = status?.discord_status === "offline";
-  
-  const lastSeenLabel = useMemo(() => {
-    if (!isOffline) return null;
-    const timestamps = [lastGame?.seenAt, lastSpotify?.seenAt].filter((t): t is number => t !== undefined);
-    if (timestamps.length === 0) return null;
-    const mostRecent = Math.max(...timestamps);
-    return `last seen ${timeAgo(mostRecent)}`;
-  }, [isOffline, lastGame, lastSpotify]);
 
   const spotifyAlbumArt = spotifyToDisplay?.album_art_url ?? null;
   const spotifyTrackId = spotifyToDisplay?.track_id ?? null;
@@ -178,13 +175,57 @@ export default function LanyardStatus({ userId }: { userId: string }) {
     )
   ) : null;
 
+  const spotifyNowPlayingBlock = spotifyMeta ? (
+    <div className="flex items-start gap-1.5 min-w-0">
+      {spotifyInlineArtwork}
+      <div className="min-w-0 flex-1">
+        <p className="text-xs text-zinc-400 truncate">
+          {spotifyMeta.prefix}
+          {spotifyMeta.song}
+        </p>
+        <p className="text-[11px] text-zinc-500 truncate">
+          by {spotifyMeta.artist}
+        </p>
+      </div>
+    </div>
+  ) : null;
+
+  const activePlatforms = useMemo(() => {
+    if (!status) return [];
+    const platforms = [];
+    if (status.active_on_discord_mobile) platforms.push({ icon: FiSmartphone, name: "Mobile" });
+    if (status.active_on_discord_desktop) platforms.push({ icon: FiMonitor, name: "Desktop" });
+    if (status.active_on_discord_web) platforms.push({ icon: FiGlobe, name: "Web" });
+    return platforms;
+  }, [status]);
+
+  const isOffline = status?.discord_status === "offline";
+  
+  const lastSeenLabel = useMemo(() => {
+    if (!isOffline || !lastStatus) return null;
+    return `last active ${timeAgo(lastStatus.seenAt)} (${lastStatus.status})`;
+  }, [isOffline, lastStatus]);
+
+  if (!status) return null;
+
+  const displayName = status.discord_user.global_name || status.discord_user.username;
+  const dotClass = statusDotMap[status.discord_status];
+  const avatarUrl = getDiscordAvatarUrl(status.discord_user);
+  const avatarDecorationUrl = status.discord_user.avatar_decoration_data
+    ? `https://cdn.discordapp.com/avatar-decoration-presets/${status.discord_user.avatar_decoration_data.asset}.png?size=128`
+    : null;
+  const nameplateUrl = status.discord_user.collectibles?.nameplate
+    ? `https://cdn.discordapp.com/assets/collectibles/${status.discord_user.collectibles.nameplate.asset}static.png`
+    : null;
+
   return (
     <>
       <SpotifyLyrics
+        trackId={currentSpotifyData?.track_id ?? null}
         track={currentSpotifyData?.song ?? null}
         artist={currentSpotifyData?.artist ?? null}
         timestamps={currentSpotifyData?.timestamps ?? null}
-        isPlaying={status?.listening_to_spotify ?? false}
+        isPlaying={status.listening_to_spotify}
       />
       <section className="fade-in-up delay-1 glass-card relative px-5 py-4 overflow-hidden">
       {nameplateUrl && (
@@ -244,24 +285,14 @@ export default function LanyardStatus({ userId }: { userId: string }) {
               {gameStatusText && (
                 <p className="text-xs text-zinc-400 truncate">{gameStatusText}</p>
               )}
-              {spotifyText && (
-                <p className="text-xs text-zinc-400 truncate inline-flex items-center gap-1.5">
-                  {spotifyInlineArtwork}
-                  <span className="truncate">{spotifyText}</span>
-                </p>
-              )}
+              {spotifyNowPlayingBlock}
             </>
           ) : (
             <>
               {gameStatusText && (
                 <p className="text-xs text-zinc-400 truncate">{gameStatusText}</p>
               )}
-              {spotifyText && (
-                <p className="text-xs text-zinc-400 truncate inline-flex items-center gap-1.5">
-                  {spotifyInlineArtwork}
-                  <span className="truncate">{spotifyText}</span>
-                </p>
-              )}
+              {spotifyNowPlayingBlock}
             </>
           )}
           {isSpotifyCurrent && spotifyProgress !== null && spotifyTimes && (

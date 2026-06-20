@@ -1,6 +1,8 @@
 import Redis from "ioredis";
 import type { LanyardData } from "./app/lib/presence/types";
-import { WORKER_POLL_INTERVAL } from "./app/lib/presence/constants";
+import type { StoredLyrics } from "./app/lib/presence/types";
+import { LYRICS_TTL, WORKER_POLL_INTERVAL, getLyricsKey } from "./app/lib/presence/constants";
+import { fetchLyricsFromLrcLib } from "./app/lib/presence/lyrics";
 import { fetchLanyardData, storePresenceData } from "./app/lib/presence/service";
 import { findGameActivity, getPlatformEmojis } from "./app/lib/presence/utils";
 
@@ -25,6 +27,38 @@ const redis = new Redis(redisUrl, {
   maxRetriesPerRequest: 2,
 });
 
+let lastLyricsTrackId: string | null = null;
+
+async function prefetchLyrics(current: LanyardData) {
+  if (!current.listening_to_spotify || !current.spotify?.track_id) {
+    lastLyricsTrackId = null;
+    return;
+  }
+
+  const trackId = current.spotify.track_id;
+  if (trackId === lastLyricsTrackId) return;
+  lastLyricsTrackId = trackId;
+
+  const cacheKey = getLyricsKey(trackId);
+  const cached = await redis.get(cacheKey);
+  if (cached) return;
+
+  const lyrics = await fetchLyricsFromLrcLib(current.spotify.song, current.spotify.artist);
+  if (!lyrics) return;
+
+  const payload: StoredLyrics = {
+    trackId,
+    track: current.spotify.song,
+    artist: current.spotify.artist,
+    syncedLyrics: lyrics.syncedLyrics,
+    plainLyrics: lyrics.plainLyrics,
+    fetchedAt: Date.now(),
+  };
+
+  await redis.set(cacheKey, JSON.stringify(payload), "EX", LYRICS_TTL);
+  console.log(`[${new Date().toISOString()}] Cached lyrics: ${current.spotify.song} by ${current.spotify.artist}`);
+}
+
 async function updatePresence() {
   try {
     const current = await fetchLanyardData(userId);
@@ -35,6 +69,7 @@ async function updatePresence() {
     }
 
     await storePresenceData(redis, userId, current);
+    await prefetchLyrics(current);
 
     const platformInfo = getPlatformEmojis(current);
     const game = findGameActivity(current.activities);

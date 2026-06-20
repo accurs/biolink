@@ -2,6 +2,7 @@ import type { LanyardData } from "./types";
 
 export const CURRENT_TTL = 2;
 export const LAST_TTL = 60 * 60 * 24 * 7;
+export const LYRICS_TTL = 60 * 60 * 24 * 7;
 
 export const WORKER_POLL_INTERVAL = 10 * 1000;
 export const CLIENT_POLL_INTERVAL = 2 * 1000;
@@ -10,7 +11,10 @@ export const getRedisKeys = (userId: string) => ({
   current: `presence:current:${userId}`,
   spotify: `presence:spotify:${userId}`,
   game: `presence:game:${userId}`,
+  status: `presence:status:${userId}`,
 });
+
+export const getLyricsKey = (trackId: string) => `presence:lyrics:${trackId}`;
 
 export const ACTIVITY_TYPES = {
   PLAYING: 0,

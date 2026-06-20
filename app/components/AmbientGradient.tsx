@@ -5,12 +5,6 @@ import type { PresenceResponse } from "@/app/lib/presence/types";
 
 type Rgb = [number, number, number];
 
-const FALLBACK_COLORS: Rgb[] = [
-  [74, 88, 122],
-  [112, 71, 131],
-  [72, 122, 143],
-];
-
 function colorDistance(a: Rgb, b: Rgb): number {
   const dr = a[0] - b[0];
   const dg = a[1] - b[1];
@@ -25,7 +19,7 @@ function toCssRgb([r, g, b]: Rgb): string {
 function extractDominantColors(img: HTMLImageElement): Rgb[] {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
-  if (!ctx) return FALLBACK_COLORS;
+  if (!ctx) return [];
 
   const SIZE = 56;
   canvas.width = SIZE;
@@ -88,14 +82,13 @@ function extractDominantColors(img: HTMLImageElement): Rgb[] {
     if (picked.length === 3) break;
   }
 
-  if (picked.length === 0) return FALLBACK_COLORS;
+  if (picked.length === 0) return [];
   while (picked.length < 3) picked.push(picked[picked.length - 1]);
   return picked;
 }
 
 export default function AmbientGradient({ userId }: { userId: string }) {
-  const [colors, setColors] = useState<Rgb[]>(FALLBACK_COLORS);
-  const [loaded, setLoaded] = useState(false);
+  const [colors, setColors] = useState<Rgb[] | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -103,10 +96,16 @@ export default function AmbientGradient({ userId }: { userId: string }) {
     async function load() {
       try {
         const res = await fetch(`/api/presence/${userId}`, { cache: "no-store" });
-        if (!res.ok) return;
+        if (!res.ok) {
+          if (isMounted) setColors(null);
+          return;
+        }
         const data = (await res.json()) as PresenceResponse;
         const user = data.current?.discord_user;
-        if (!user?.avatar) return;
+        if (!user?.avatar) {
+          if (isMounted) setColors(null);
+          return;
+        }
 
         const ext = user.avatar.startsWith("a_") ? "gif" : "png";
         const url = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.${ext}?size=256`;
@@ -115,16 +114,16 @@ export default function AmbientGradient({ userId }: { userId: string }) {
         img.crossOrigin = "anonymous";
         img.onload = () => {
           if (!isMounted) return;
-          setColors(extractDominantColors(img));
-          setLoaded(true);
+          const extracted = extractDominantColors(img);
+          setColors(extracted.length ? extracted : null);
         };
         img.onerror = () => {
           if (!isMounted) return;
-          setLoaded(true);
+          setColors(null);
         };
         img.src = url;
       } catch {
-        if (isMounted) setLoaded(true);
+        if (isMounted) setColors(null);
       }
     }
 
@@ -136,11 +135,29 @@ export default function AmbientGradient({ userId }: { userId: string }) {
 
   useEffect(() => {
     const root = document.documentElement;
+    if (!colors) {
+      root.classList.remove("avatar-colors-ready");
+      root.style.removeProperty("--avatar-color-1");
+      root.style.removeProperty("--avatar-color-2");
+      root.style.removeProperty("--avatar-color-3");
+      return;
+    }
+
     const [c1, c2, c3] = colors.map(toCssRgb);
     root.style.setProperty("--avatar-color-1", c1);
     root.style.setProperty("--avatar-color-2", c2);
     root.style.setProperty("--avatar-color-3", c3);
+    root.classList.add("avatar-colors-ready");
+
+    return () => {
+      root.classList.remove("avatar-colors-ready");
+      root.style.removeProperty("--avatar-color-1");
+      root.style.removeProperty("--avatar-color-2");
+      root.style.removeProperty("--avatar-color-3");
+    };
   }, [colors]);
+
+  if (!colors) return null;
 
   const [c1, c2, c3] = colors.map(toCssRgb);
 
@@ -148,7 +165,7 @@ export default function AmbientGradient({ userId }: { userId: string }) {
     <div
       className="fixed inset-0 pointer-events-none -z-10 transition-opacity duration-700"
       style={{
-        opacity: loaded ? 1 : 0.85,
+        opacity: 1,
         background: `
           radial-gradient(120% 90% at 12% 8%, rgba(${c1}, 0.32) 0%, rgba(${c1}, 0.11) 36%, rgba(0, 0, 0, 0) 64%),
           radial-gradient(100% 80% at 86% 18%, rgba(${c2}, 0.26) 0%, rgba(${c2}, 0.09) 34%, rgba(0, 0, 0, 0) 62%),

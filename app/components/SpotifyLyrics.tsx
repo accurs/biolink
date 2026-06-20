@@ -20,21 +20,27 @@ function parseLrc(lrc: string): LyricLine[] {
 }
 
 type Props = {
+  trackId: string | null;
   track: string | null;
   artist: string | null;
   timestamps: { start: number; end: number } | null;
   isPlaying: boolean;
 };
 
-export default function SpotifyLyrics({ track, artist, timestamps, isPlaying }: Props) {
+export default function SpotifyLyrics({ trackId, track, artist, timestamps, isPlaying }: Props) {
   const [lines, setLines] = useState<LyricLine[] | null>(null);
   const [currentIdx, setCurrentIdx] = useState(-1);
   const lastTrackRef = useRef<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchLyrics = useCallback(async (t: string, a: string) => {
+  const fetchLyrics = useCallback(async (id: string | null, t: string, a: string) => {
     try {
-      const res = await fetch(`/api/lyrics?track=${encodeURIComponent(t)}&artist=${encodeURIComponent(a)}`);
+      const params = new URLSearchParams({
+        track: t,
+        artist: a,
+      });
+      if (id) params.set("trackId", id);
+      const res = await fetch(`/api/lyrics?${params.toString()}`, { cache: "no-store" });
       if (!res.ok) { setLines(null); return; }
       const data = await res.json();
       if (data.syncedLyrics) {
@@ -48,32 +54,52 @@ export default function SpotifyLyrics({ track, artist, timestamps, isPlaying }: 
   }, []);
 
   useEffect(() => {
-    if (!track || !artist) { setLines(null); return; }
-    if (lastTrackRef.current === track) return;
-    lastTrackRef.current = track;
-    setCurrentIdx(-1);
-    fetchLyrics(track, artist);
-  }, [track, artist, fetchLyrics]);
+    if (!track || !artist) {
+      const resetId = window.setTimeout(() => {
+        setLines(null);
+        setCurrentIdx(-1);
+      }, 0);
+      return () => window.clearTimeout(resetId);
+    }
+    const currentTrackKey = trackId ?? `${track}::${artist}`;
+    if (lastTrackRef.current === currentTrackKey) return;
+    lastTrackRef.current = currentTrackKey;
+    const resetId = window.setTimeout(() => setCurrentIdx(-1), 0);
+    fetchLyrics(trackId, track, artist);
+    return () => window.clearTimeout(resetId);
+  }, [trackId, track, artist, fetchLyrics]);
 
   useEffect(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
 
     if (!lines || !timestamps || !isPlaying) {
-      setCurrentIdx(-1);
-      return;
+      const resetId = window.setTimeout(() => setCurrentIdx(-1), 0);
+      return () => window.clearTimeout(resetId);
     }
 
     const sync = () => {
       const elapsed = Date.now() - timestamps.start;
+      if (elapsed < 0) {
+        setCurrentIdx(-1);
+        return;
+      }
+      let low = 0;
+      let high = lines.length - 1;
       let idx = -1;
-      for (let i = lines.length - 1; i >= 0; i--) {
-        if (elapsed >= lines[i].time) { idx = i; break; }
+      while (low <= high) {
+        const mid = (low + high) >> 1;
+        if (lines[mid].time <= elapsed) {
+          idx = mid;
+          low = mid + 1;
+        } else {
+          high = mid - 1;
+        }
       }
       setCurrentIdx(idx);
     };
 
     sync();
-    intervalRef.current = setInterval(sync, 200);
+    intervalRef.current = setInterval(sync, 120);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [lines, timestamps, isPlaying]);
 

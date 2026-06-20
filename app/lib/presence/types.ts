@@ -57,8 +57,23 @@ export type StoredGame = {
   seenAt: number;
 };
 
+export type StoredStatus = {
+  status: "online" | "idle" | "dnd";
+  seenAt: number;
+};
+
+export type StoredLyrics = {
+  trackId: string;
+  track: string;
+  artist: string;
+  syncedLyrics: string | null;
+  plainLyrics: string | null;
+  fetchedAt: number;
+};
+
 export type PresenceResponse = {
   current: LanyardData;
   lastSpotify: StoredSpotify | null;
   lastGame: StoredGame | null;
+  lastStatus: StoredStatus | null;
 };

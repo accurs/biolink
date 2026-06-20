@@ -23,7 +23,7 @@ export async function GET(
 
   const { userId } = await params;
 
-  let { current, lastSpotify, lastGame } = await getCachedPresenceData(redis, userId);
+  let { current, lastSpotify, lastGame, lastStatus } = await getCachedPresenceData(redis, userId);
 
   if (!current) {
     try {
@@ -36,12 +36,13 @@ export async function GET(
       const stored = await storePresenceData(redis, userId, current);
       if (stored.lastSpotify) lastSpotify = stored.lastSpotify;
       if (stored.lastGame) lastGame = stored.lastGame;
+      if (stored.lastStatus) lastStatus = stored.lastStatus;
     } catch (error) {
       console.error("Error fetching presence:", error);
       return NextResponse.json({ error: "upstream error" }, { status: 502 });
     }
   }
 
-  const body: PresenceResponse = { current, lastSpotify, lastGame };
+  const body: PresenceResponse = { current, lastSpotify, lastGame, lastStatus };
   return NextResponse.json(body);
 }
