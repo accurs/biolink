@@ -29,10 +29,10 @@ export const statusTextMap: Record<LanyardData["discord_status"], string> = {
 };
 
 export const statusDotMap: Record<LanyardData["discord_status"], string> = {
-  online: "bg-emerald-400",
-  idle: "bg-amber-400",
-  dnd: "bg-red-400",
-  offline: "bg-zinc-500",
+  online: "bg-[#23a55a]",
+  idle: "bg-[#f0b232]",
+  dnd: "bg-[#f23f43]",
+  offline: "bg-[#80848e]",
 };
 
 export const LANYARD_API_BASE = "https://api.lanyard.rest/v1";

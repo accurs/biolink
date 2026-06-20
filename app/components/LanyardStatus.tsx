@@ -5,6 +5,7 @@ import type { LanyardData, StoredSpotify, StoredGame, PresenceResponse } from "@
 import { FiSmartphone, FiMonitor, FiGlobe } from "react-icons/fi";
 import { CLIENT_POLL_INTERVAL, statusDotMap } from "@/app/lib/presence/constants";
 import { formatMs, timeAgo, getDiscordAvatarUrl, getGameStatusText, findGameActivity } from "@/app/lib/presence/utils";
+import SpotifyLyrics from "./SpotifyLyrics";
 
 export default function LanyardStatus({ userId }: { userId: string }) {
   const [status, setStatus] = useState<LanyardData | null>(null);
@@ -119,6 +120,12 @@ export default function LanyardStatus({ userId }: { userId: string }) {
   const avatarUrl = status
     ? getDiscordAvatarUrl(status.discord_user)
     : "https://cdn.discordapp.com/embed/avatars/0.png";
+  const avatarDecorationUrl = status?.discord_user.avatar_decoration_data
+    ? `https://cdn.discordapp.com/avatar-decoration-presets/${status.discord_user.avatar_decoration_data.asset}.png?size=128`
+    : null;
+  const nameplateUrl = status?.discord_user.collectibles?.nameplate
+    ? `https://cdn.discordapp.com/assets/collectibles/${status.discord_user.collectibles.nameplate.asset}static.png`
+    : null;
 
   const activePlatforms = useMemo(() => {
     if (!status) return [];
@@ -142,23 +149,77 @@ export default function LanyardStatus({ userId }: { userId: string }) {
   const spotifyAlbumArt = spotifyToDisplay?.album_art_url ?? null;
   const spotifyTrackId = spotifyToDisplay?.track_id ?? null;
   const isSpotifyCurrent = currentSpotifyData !== null;
+  const spotifyInlineArtwork = spotifyAlbumArt ? (
+    spotifyTrackId ? (
+      <a
+        href={`https://open.spotify.com/track/${spotifyTrackId}`}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex h-4 w-4 flex-shrink-0 overflow-hidden rounded border border-white/15 align-middle"
+      >
+        <img
+          src={spotifyAlbumArt}
+          alt=""
+          className="h-full w-full object-cover opacity-90"
+          loading="lazy"
+          referrerPolicy="no-referrer"
+        />
+      </a>
+    ) : (
+      <span className="inline-flex h-4 w-4 flex-shrink-0 overflow-hidden rounded border border-white/15 align-middle">
+        <img
+          src={spotifyAlbumArt}
+          alt=""
+          className="h-full w-full object-cover opacity-90"
+          loading="lazy"
+          referrerPolicy="no-referrer"
+        />
+      </span>
+    )
+  ) : null;
 
   return (
-    <section className="fade-in-up delay-1 glass-card relative px-4 py-3">
-      <div className="flex items-center gap-3">
-        <div className="relative h-11 w-11 flex-shrink-0">
-          <div className="h-full w-full rounded-full bg-white/10 overflow-hidden">
-            <img
-              src={avatarUrl}
-              alt={`${displayName} avatar`}
-              className="h-full w-full object-cover"
-              loading="lazy"
-              referrerPolicy="no-referrer"
-            />
+    <>
+      <SpotifyLyrics
+        track={currentSpotifyData?.song ?? null}
+        artist={currentSpotifyData?.artist ?? null}
+        timestamps={currentSpotifyData?.timestamps ?? null}
+        isPlaying={status?.listening_to_spotify ?? false}
+      />
+      <section className="fade-in-up delay-1 glass-card relative px-5 py-4 overflow-hidden">
+      {nameplateUrl && (
+        <img
+          src={nameplateUrl}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover opacity-30 pointer-events-none"
+          loading="lazy"
+          referrerPolicy="no-referrer"
+        />
+      )}
+      <div className="relative flex items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="relative h-11 w-11 flex-shrink-0">
+            <div className="h-full w-full rounded-full bg-white/10 overflow-hidden">
+              <img
+                src={avatarUrl}
+                alt={`${displayName} avatar`}
+                className="h-full w-full object-cover"
+                loading="lazy"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            {avatarDecorationUrl && (
+              <img
+                src={avatarDecorationUrl}
+                alt=""
+                className="absolute -inset-1.5 h-[calc(100%+12px)] w-[calc(100%+12px)] object-contain pointer-events-none"
+                loading="lazy"
+                referrerPolicy="no-referrer"
+              />
+            )}
+            <span className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border border-[#0f0f0f] ${dotClass}`} />
           </div>
-          <span className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border border-[#0f0f0f] ${dotClass}`} />
-        </div>
-        <div className={`space-y-1 min-w-0 ${spotifyAlbumArt ? 'pr-12' : ''}`}>
+          <div className="space-y-1 min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <p className="text-sm font-medium text-zinc-100 truncate">{displayName}</p>
             {activePlatforms.length > 0 && (
@@ -184,7 +245,10 @@ export default function LanyardStatus({ userId }: { userId: string }) {
                 <p className="text-xs text-zinc-400 truncate">{gameStatusText}</p>
               )}
               {spotifyText && (
-                <p className="text-xs text-zinc-400 truncate">{spotifyText}</p>
+                <p className="text-xs text-zinc-400 truncate inline-flex items-center gap-1.5">
+                  {spotifyInlineArtwork}
+                  <span className="truncate">{spotifyText}</span>
+                </p>
               )}
             </>
           ) : (
@@ -193,7 +257,10 @@ export default function LanyardStatus({ userId }: { userId: string }) {
                 <p className="text-xs text-zinc-400 truncate">{gameStatusText}</p>
               )}
               {spotifyText && (
-                <p className="text-xs text-zinc-400 truncate">{spotifyText}</p>
+                <p className="text-xs text-zinc-400 truncate inline-flex items-center gap-1.5">
+                  {spotifyInlineArtwork}
+                  <span className="truncate">{spotifyText}</span>
+                </p>
               )}
             </>
           )}
@@ -212,33 +279,9 @@ export default function LanyardStatus({ userId }: { userId: string }) {
             </div>
           )}
         </div>
+        </div>
       </div>
-      {spotifyAlbumArt && (
-        spotifyTrackId ? (
-          <a
-            href={`https://open.spotify.com/track/${spotifyTrackId}`}
-            target="_blank"
-            rel="noreferrer"
-            className="absolute top-2.5 right-2.5 h-9 w-9 rounded-md overflow-hidden border border-white/10 hover:border-white/30 transition-colors"
-          >
-            <img
-              src={spotifyAlbumArt}
-              alt="album art"
-              className="h-full w-full object-cover"
-              loading="lazy"
-              referrerPolicy="no-referrer"
-            />
-          </a>
-        ) : (
-          <img
-            src={spotifyAlbumArt}
-            alt="album art"
-            className="absolute top-2.5 right-2.5 h-9 w-9 rounded-md object-cover border border-white/10"
-            loading="lazy"
-            referrerPolicy="no-referrer"
-          />
-        )
-      )}
     </section>
+    </>
   );
 }

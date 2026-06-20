@@ -12,6 +12,18 @@ export type LanyardData = {
     username: string;
     global_name?: string | null;
     avatar?: string | null;
+    avatar_decoration_data?: {
+      asset: string;
+      sku_id: string;
+    } | null;
+    collectibles?: {
+      nameplate?: {
+        asset: string;
+        sku_id: string;
+        label: string;
+        palette: string;
+      } | null;
+    } | null;
   };
   listening_to_spotify: boolean;
   spotify?: {
