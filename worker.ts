@@ -5,6 +5,7 @@ import { LYRICS_TTL, WORKER_POLL_INTERVAL, getLyricsKey } from "./app/lib/presen
 import { fetchLyricsFromLrcLib } from "./app/lib/presence/lyrics";
 import { fetchLanyardData, storePresenceData } from "./app/lib/presence/service";
 import { findGameActivity, getPlatformEmojis } from "./app/lib/presence/utils";
+import { redisOptionsFromUrl } from "./app/lib/redis-options";
 
 const REDIS_URL = process.env.REDIS_URL;
 const USER_ID = process.env.DISCORD_USER_ID;
@@ -20,12 +21,8 @@ if (!USER_ID) {
 }
 
 const userId: string = USER_ID;
-const redisUrl: string = REDIS_URL;
 
-const redis = new Redis(redisUrl, {
-  lazyConnect: true,
-  maxRetriesPerRequest: 2,
-});
+const redis = new Redis(redisOptionsFromUrl(REDIS_URL));
 
 let lastLyricsTrackId: string | null = null;
 
@@ -98,17 +95,18 @@ async function main() {
   setInterval(updatePresence, WORKER_POLL_INTERVAL);
 }
 
-process.on("SIGINT", async () => {
-  console.log("\nShutting down worker...");
-  await redis.quit();
-  process.exit(0);
-});
+let shuttingDown = false;
 
-process.on("SIGTERM", async () => {
+async function shutdown() {
+  if (shuttingDown) return;
+  shuttingDown = true;
   console.log("\nShutting down worker...");
   await redis.quit();
   process.exit(0);
-});
+}
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
 
 main().catch((error) => {
   console.error("Fatal error:", error);
