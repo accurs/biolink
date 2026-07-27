@@ -13,7 +13,7 @@ export async function fetchLyricsFromLrcLib(track: string, artist: string): Prom
 
   const res = await fetch(url, {
     headers: {
-      "User-Agent": "biolink/1.0 (https://github.com/accurs/portfolio)",
+      "User-Agent": "biolink/1.0 (https://github.com/accurs/biolink)",
     },
     cache: "no-store",
   });

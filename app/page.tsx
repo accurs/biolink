@@ -94,7 +94,7 @@ export default function Home() {
             <a href="mailto:damon@azron.net" className="transition-colors hover:text-zinc-300 underline underline-offset-4 decoration-zinc-700">damon@azron.net</a>
           </p>
           <a
-            href="https://github.com/accurs/portfolio"
+            href="https://github.com/accurs/biolink"
             target="_blank"
             rel="noreferrer"
             className="glass-pill inline-flex items-center gap-1.5 text-[11px] lowercase text-zinc-500 hover:text-zinc-300"
