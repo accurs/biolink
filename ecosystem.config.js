@@ -2,9 +2,10 @@ module.exports = {
   apps: [
     {
       name: "portfolio",
-      script: "node_modules/.bin/next",
-      args: "start",
-      cwd: "/root/portfolio",
+      script: "bun",
+      args: "run start",
+      cwd: "/root/biolink",
+      interpreter: "none",
       instances: 1,
       exec_mode: "fork",
       autorestart: true,
@@ -12,13 +13,15 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         PORT: 8080,
+        REDIS_URL: "redis://localhost:6379",
       },
     },
     {
       name: "presence-worker",
-      script: "node_modules/.bin/tsx",
-      args: "worker.ts",
-      cwd: "/root/portfolio",
+      script: "bun",
+      args: "run dev:worker",
+      cwd: "/root/biolink",
+      interpreter: "none",
       instances: 1,
       exec_mode: "fork",
       autorestart: true,
