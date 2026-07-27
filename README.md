@@ -1,36 +1,91 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# biolink
 
-## Getting Started
+Personal link-in-bio / portfolio — projects, tech stack, Discord presence (Lanyard), and synced Spotify lyrics.
 
-First, run the development server:
+Built with Next.js 16, React 19, Tailwind CSS 4, Redis, and a background presence worker.
+
+## Requirements
+
+- [Bun](https://bun.sh)
+- Redis (`redis://localhost:6379` by default)
+- A Discord user ID monitored via [Lanyard](https://github.com/Phineas/lanyard)
+
+## Environment
+
+Create a `.env` in the project root:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+REDIS_URL=redis://localhost:6379
+DISCORD_USER_ID=your_discord_user_id
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+| Variable | Used by | Description |
+|---|---|---|
+| `REDIS_URL` | Next.js API routes, worker | Redis connection string |
+| `DISCORD_USER_ID` | worker | Discord user to poll via Lanyard |
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The Discord user id on the page itself is set in `app/page.tsx` (`LanyardStatus`).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Development
 
-## Learn More
+Install and start the web app + presence worker together:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+bun install
+bun run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Web: [http://localhost:3000](http://localhost:3000)
+- Worker: polls Lanyard, caches presence in Redis, and prefetches lyrics
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Or run them separately:
 
-## Deploy on Vercel
+```bash
+bun run dev:web      # next dev
+bun run dev:worker  # tsx worker.ts
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Production
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+bun run build
+bun run start          # Next.js (default port 3000)
+bun run dev:worker     # presence worker
+```
+
+Or with PM2 (`ecosystem.config.js`):
+
+```bash
+bun run build
+pm2 start ecosystem.config.js
+pm2 save
+```
+
+That starts:
+
+- `portfolio` — `bun run start` on port **8080**
+- `presence-worker` — Redis-backed Lanyard poller
+
+Update `cwd`, `PORT`, `REDIS_URL`, and `DISCORD_USER_ID` in `ecosystem.config.js` for your host.
+
+## Scripts
+
+| Command | Description |
+|---|---|
+| `bun run dev` | Web + worker (concurrently) |
+| `bun run build` | Production build |
+| `bun run start` | Serve production build |
+| `bun run lint` | ESLint |
+
+## API
+
+| Route | Description |
+|---|---|
+| `GET /api/presence/[userId]` | Cached presence (current + last Spotify/game/status) |
+| `GET /api/lyrics` | Cached Spotify lyrics for the current track |
+
+Presence routes reject direct browser hits without a same-origin referer/origin.
+
+## License
+
+MIT — see [LICENSE.md](./LICENSE.md).
