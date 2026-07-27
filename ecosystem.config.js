@@ -19,7 +19,7 @@ module.exports = {
     {
       name: "presence-worker",
       script: "bun",
-      args: "run dev:worker",
+      args: "--env-file=.env worker.ts",
       cwd: "/root/biolink",
       interpreter: "none",
       instances: 1,

@@ -21,12 +21,13 @@ export default function Home() {
           <div className="mt-5 flex items-center gap-3">
             {links.map((item) => {
               const Icon = item.icon;
+              const external = item.href.startsWith("http");
               return (
                 <a
                   key={item.label}
                   href={item.href}
-                  target="_blank"
-                  rel="noreferrer"
+                  aria-label={item.label}
+                  {...(external ? { target: "_blank", rel: "noreferrer" } : {})}
                   className="group flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-400 transition-all hover:border-white/20 hover:bg-white/10 hover:text-white"
                 >
                   <Icon className="h-4 w-4" aria-hidden="true" />
@@ -89,19 +90,7 @@ export default function Home() {
           </div>
         </section>
 
-        <footer className="fade-in-up delay-4 flex flex-col items-center gap-2 text-center">
-          <p className="text-xs text-zinc-500">
-            <a href="mailto:damon@azron.net" className="transition-colors hover:text-zinc-300 underline underline-offset-4 decoration-zinc-700">damon@azron.net</a>
-          </p>
-          <a
-            href="https://github.com/accurs/biolink"
-            target="_blank"
-            rel="noreferrer"
-            className="glass-pill inline-flex items-center gap-1.5 text-[11px] lowercase text-zinc-500 hover:text-zinc-300"
-          >
-            source
-            <FiArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
-          </a>
+        <footer className="fade-in-up delay-4 text-center">
           <p className="text-[11px] text-zinc-600" style={{ fontFamily: "var(--font-ibm-plex-mono), monospace" }}>
             &copy; {new Date().getFullYear()}{" "}
             <a
